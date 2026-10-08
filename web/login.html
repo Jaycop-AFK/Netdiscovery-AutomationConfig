@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NetScope - เข้าสู่ระบบ</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  .box{max-width:380px;margin:12vh auto;padding:28px;background:var(--panel);border:1px solid var(--line);border-radius:14px}
+  .box h1{font-size:20px;margin:0 0 4px} .box p{margin:0 0 18px;color:var(--muted)}
+  .err{color:var(--bad);min-height:20px;margin-top:10px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="brand" style="margin-bottom:16px"><span class="logo"></span><b>NetScope</b></div>
+  <h1>ใส่รหัสเข้าใช้งาน</h1>
+  <p>เจ้าของระบบจะเป็นคนให้รหัสนี้กับคุณ</p>
+  <form id="f">
+    <input id="pw" type="password" placeholder="รหัสเข้าใช้งาน" autocomplete="current-password" autofocus>
+    <button class="btn primary wide" id="go">เข้าสู่ระบบ</button>
+    <div class="err" id="err"></div>
+  </form>
+</div>
+<script>
+document.getElementById('f').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const err = document.getElementById('err'), btn = document.getElementById('go');
+  err.textContent = ''; btn.disabled = true;
+  try {
+    const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: document.getElementById('pw').value }) });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) location.href = '/'; else err.textContent = d.error || 'เข้าสู่ระบบไม่สำเร็จ';
+  } catch (x) { err.textContent = 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้'; }
+  btn.disabled = false;
+});
+</script>
+</body>
+</html>

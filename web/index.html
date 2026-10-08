@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NetScope - Network Discovery</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2312b886'/%3E%3Ccircle cx='16' cy='16' r='5' fill='none' stroke='white' stroke-width='2.5'/%3E%3Cpath d='M16 3v6M16 23v6M3 16h6M23 16h6' stroke='white' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo"></span><b>NetScope</b><small>Network Discovery &amp; Config</small></div>
+  <nav id="tabs">
+    <button data-view="dash" class="on">Dashboard</button>
+    <button data-view="init">Initial Config</button>
+    <button data-view="ping">Ping Test</button>
+    <button data-view="log">Activity</button>
+  </nav>
+  <div class="chips"><button class="btn small" id="btnDemo" title="โหมดจำลอง: สร้าง Cisco IOS จำลอง 4 เครื่อง ตั้งค่า + discovery ให้อัตโนมัติ (ไม่ต้องมีอุปกรณ์จริง)">🧪 Demo</button><span class="chip" id="chipDev">0 อุปกรณ์</span><span class="chip" id="chipLink">0 links</span></div>
+</header>
+<div class="sharebar onlyshare">🔒 โหมดแชร์ — ใช้ได้เฉพาะอุปกรณ์จำลอง (กดปุ่ม 🧪 Demo เพื่อเริ่ม) · อุปกรณ์จำลองเป็นของส่วนกลาง ถ้ามีคนอื่นใช้อยู่ด้วยกดรีเซ็ตได้</div>
+<div id="toast" class="toast" hidden></div>
+
+<main>
+  <!-- ======================= DASHBOARD ======================= -->
+  <section id="view-dash" class="view">
+    <div class="grid-dash">
+      <div class="card topo-card">
+        <div class="card-head">
+          <h2>Network Topology</h2>
+          <div class="row gap">
+            <label class="check"><input type="checkbox" id="optCrawl" checked> ตามหา neighbor อัตโนมัติ</label>
+            <button class="btn primary" id="btnDiscover">▶ Auto Discovery</button>
+            <button class="btn small" id="btnClearTopology" title="ล้าง topology ที่ค้างอยู่ ไม่ลบ config บนอุปกรณ์">ล้าง topology</button>
+          </div>
+        </div>
+        <div class="topo-wrap" id="topoWrap"><svg id="topo" viewBox="0 0 900 520" preserveAspectRatio="xMidYMid meet"></svg>
+          <div class="empty" id="topoEmpty"><div><b style="font-size:16px;color:var(--text)">ยังไม่มี topology</b><br><span class="muted">เพิ่มอุปกรณ์จริง/EVE-NG ที่แท็บ Initial Config แล้วกด Auto Discovery</span>
+          <div class="muted" style="margin-top:10px;font-size:12px">ยังไม่มีอุปกรณ์? กดปุ่ม <b>🧪 Demo</b> มุมบนขวา เพื่อลองด้วย Cisco IOS จำลอง (เลือกเริ่มจากเปล่าหรือตั้งค่าให้แล้วได้)</div></div></div>
+        </div>
+        <div class="demobar" id="demoBar" hidden>
+          <b>🧪 โหมดจำลอง</b>
+          <button class="btn small" id="demoInit">⓪ Initial Config</button>
+          <button class="btn small" id="demoDisc">① Discovery</button>
+          <button class="btn small" data-demo="auto address links from 10.10.0.0/16">② ตั้ง IP ทุกลิงก์</button>
+          <button class="btn small" data-demo="enable ospf area 0 on all devices">③ เปิด OSPF</button>
+          <button class="btn small" id="demoPing">④ Ping Test</button>
+          <span style="flex:1"></span>
+          <button class="btn small" id="demoBlank" title="คืนอุปกรณ์จำลองเป็นค่าโรงงาน และลบออกจากรายการ">รีเซ็ตเป็นเปล่า</button>
+          <button class="btn small" id="demoAuto" title="ตั้งค่า Initial Config + Discovery ให้อัตโนมัติ">ตั้งค่าให้อัตโนมัติ</button>
+          <button class="btn small" id="demoExit">ออก</button>
+        </div>
+        <div class="legend">
+          <span><i class="dot ok"></i>Online</span><span><i class="dot warn"></i>Unmanaged neighbor</span><span><i class="dot bad"></i>Unreachable</span>
+          <span><i class="ln ok"></i>Link up</span><span><i class="ln bad"></i>Link down</span><span class="muted" id="topoStamp"></span>
+        </div>
+        <div class="job-box" id="discBox" hidden><pre id="discLog"></pre></div>
+      </div>
+
+      <div class="col">
+        <div class="card">
+          <div class="card-head"><h2>อุปกรณ์</h2><button class="btn small noshare" id="btnAddDev">+ เพิ่ม (มี SSH แล้ว)</button></div>
+          <div id="devList" class="devlist"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>🤖 สั่งงานด้วย AI</h2><button class="btn small noshare" id="btnAi" title="ตั้งค่า OpenRouter API key / model"><span id="aiState">ใส่ API key</span></button></div>
+          <textarea id="promptText" rows="4" placeholder="บอกสิ่งที่ต้องการเป็นภาษาธรรมดา แล้วกด Ctrl+Enter&#10;เช่น ทำให้ R1 R2 R3 ping หากันได้ด้วย OSPF"></textarea>
+          <div class="examples" id="examples"></div>
+          <button class="btn primary wide" id="btnPreview">🤖 ให้ AI วางแผน → Preview</button>
+          <p class="hint">AI วางแผนแล้วแสดงคำสั่ง IOS แยกตามอุปกรณ์ให้ตรวจสอบ — ไม่มีอะไรถูกส่งไปอุปกรณ์จนกว่าคุณจะกดยืนยัน</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= INITIAL CONFIG ======================= -->
+  <section id="view-init" class="view" hidden>
+    <div class="grid-two">
+      <div class="card">
+        <div class="card-head"><h2>1) เชื่อมต่อ Console</h2></div>
+        <div class="seg" id="conType">
+          <button data-t="telnet" class="on">EVE-NG / Telnet console</button><button data-t="serial" class="noshare">Serial (COM)</button>
+        </div>
+        <div id="conTelnet" class="form">
+          <label>Host<input id="conHost" placeholder="IP ของ EVE-NG เช่น 192.168.1.50"></label>
+          <label>Port<input id="conPort" type="number" placeholder="เช่น 32769"></label>
+        </div>
+        <div id="conSerial" class="form" hidden>
+          <label>COM port <span class="muted">(ตรวจจับอัตโนมัติ)</span>
+            <div class="row gap"><input id="serPort" list="serList" placeholder="COM3" style="flex:1"><button class="btn small" id="btnSerScan" type="button" title="สแกนใหม่">⟳</button></div>
+            <datalist id="serList"></datalist></label>
+          <label>Baud<input id="serBaud" type="number" value="9600"></label>
+          <div id="serHint" class="hint" style="grid-column:1/-1"></div>
+        </div>
+        <details class="adv"><summary>Console มีรหัสผ่านอยู่แล้ว?</summary>
+          <div class="form"><label>Console username<input id="conUser"></label><label>Console password<input id="conPass" type="password"></label>
+          <label>Existing enable password<input id="conEnable" type="password"></label></div></details>
+
+        <details class="adv noshare" id="eveBox"><summary>ดึงรายการโหนด/Port จาก EVE-NG (ไม่บังคับ)</summary>
+          <div class="form">
+            <label>EVE-NG IP<input id="eveHost" placeholder="192.168.1.50"></label>
+            <label>Lab path<input id="eveLab" placeholder="/Lab1.unl"></label>
+            <label>Username<input id="eveUser" value="admin"></label>
+            <label>Password<input id="evePass" type="password" value="eve"></label>
+            <label class="check"><input type="checkbox" id="eveHttps"> ใช้ HTTPS</label>
+            <div><button class="btn small" id="btnEve">โหลดโหนด</button></div>
+          </div>
+          <div id="eveNodes"></div>
+        </details>
+
+        <div class="card-head" style="margin-top:18px"><h2>2) ค่าที่จะตั้งให้อุปกรณ์</h2></div>
+        <div class="form">
+          <label>Hostname<input id="f_hostname" placeholder="R1"></label>
+          <label>Device type<select id="f_device_type"><option value="router">Router</option><option value="switch">Switch (L2/L3)</option></select></label>
+          <label>Domain name<input id="f_domain" value="lab.local"></label>
+          <label>RSA key size<select id="f_rsa_bits"><option>2048</option><option>1024</option><option>4096</option></select></label>
+          <label>SSH username<input id="f_username" value="admin"></label>
+          <label>SSH password<input id="f_password" type="password" placeholder="รหัสผ่าน"></label>
+          <label>Enable secret<input id="f_enable_secret" type="password" placeholder="ว่าง = ใช้รหัสเดียวกับ SSH"></label>
+          <label>Management interface
+            <div class="row gap"><select id="f_mgmt_if" style="flex:1"><option value="GigabitEthernet0/0">GigabitEthernet0/0 (ค่าเริ่มต้น)</option></select><button class="btn small" id="btnIfScan" type="button" title="อ่าน show ip interface brief ผ่าน console">ค้นหาพอร์ต</button></div>
+            <span class="hint">กด “ทดสอบ console” หรือ “ค้นหาพอร์ต” แล้วเลือกจากรายการ</span>
+          </label>
+          <label>Management IP<input id="f_mgmt_ip" placeholder="192.168.1.11"></label>
+          <label>Prefix length / mask<input id="f_mgmt_prefix" value="24"></label>
+          <label>Default gateway (ไม่บังคับ)<input id="f_gateway" placeholder="192.168.1.1"></label>
+          <label>vty transport<select id="f_vty_transport"><option value="ssh">ssh</option><option value="ssh telnet">ssh + telnet</option></select></label>
+        </div>
+        <label class="check block"><input type="checkbox" id="f_bring_up_all" checked> เปิด (no shutdown) ทุกพอร์ตกายภาพ เพื่อให้ CDP มองเห็น neighbor</label>
+        <label class="check block"><input type="checkbox" id="f_save_config" checked> บันทึก config หลังตั้งค่าเสร็จ (write memory / wr)</label>
+        <label class="block">คำสั่งเพิ่มเติม (ไม่บังคับ — บรรทัดละคำสั่งใน global config)<textarea id="f_extra" rows="2"></textarea></label>
+        <div class="row gap end">
+          <button class="btn" id="btnProbe" title="ต่อ console แล้วดูว่าเจออุปกรณ์หรือไม่ (ยังไม่เปลี่ยน config)">ทดสอบ console</button>
+          <button class="btn" id="btnConsoleCdp" title="อ่าน CDP ผ่าน Console แล้วสร้างสายบน Dashboard โดยไม่เปลี่ยน config">อ่าน CDP → สร้างสาย</button>
+          <button class="btn" id="btnInitPreview">ดูคำสั่ง</button>
+          <button class="btn primary" id="btnInitApply">ส่งค่า Initial Config →</button>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card">
+          <div class="card-head"><h2>ผลลัพธ์ / Log</h2></div>
+          <div id="initHint" class="hint">กรอกฟอร์มด้านซ้าย แล้วกด "ดูคำสั่ง" เพื่อตรวจสอบก่อนส่ง.<br>ขั้นตอน: ต่อ console → ตั้ง hostname/user/IP/SSH → save → ทดสอบ SSH → ลงทะเบียนอุปกรณ์.</div>
+          <pre id="initLog" class="logbox"></pre>
+        </div>
+        <div class="card" id="simCard" hidden>
+          <div class="card-head"><h2>🧪 อุปกรณ์จำลอง (Demo)</h2></div>
+          <div id="simList" class="devlist"></div>
+          <p class="hint">กด "ใช้ค่านี้" เพื่อกรอก console / hostname / IP ให้ แล้วกด "ส่งค่า Initial Config" ได้เลย (รหัสผ่านเริ่มต้น cisco123)</p>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>อุปกรณ์ที่ลงทะเบียนแล้ว</h2></div>
+          <div id="devList2" class="devlist"></div>
+          <p class="hint">ต้องมีอย่างน้อย 3 อุปกรณ์ จึงกด Auto Discovery ที่ Dashboard</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= PING ======================= -->
+  <section id="view-ping" class="view" hidden>
+    <div class="grid-two">
+      <div class="card">
+        <div class="card-head"><h2>Ping จากอุปกรณ์ (รันบน Router จริง)</h2></div>
+        <div class="form">
+          <label>จากอุปกรณ์<select id="pingFrom"></select></label>
+          <label>ปลายทาง (IP หรือชื่ออุปกรณ์)<input id="pingTarget" placeholder="10.10.0.2 หรือ R2"></label>
+          <label>จำนวนแพ็กเก็ต<input id="pingCount" type="number" value="5" min="1" max="20"></label>
+          <label>Source (ไม่บังคับ)<input id="pingSource" placeholder="Loopback0 หรือ IP"></label>
+        </div>
+        <button class="btn primary" id="btnPing">Ping</button>
+        <pre id="pingLog" class="logbox"></pre>
+        <div id="pingResult"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Ping ทุกคู่ (Reachability Matrix)</h2><button class="btn primary" id="btnMatrix">รันทดสอบทั้งหมด</button></div>
+        <p class="hint">ทุกอุปกรณ์จะ ping ไปยัง IP ของอุปกรณ์อื่น (ไม่รวม mgmt) — ถ้าตั้ง routing ถูก ทุกช่องต้องเป็นสีเขียว</p>
+        <div id="matrix"></div>
+        <pre id="matrixLog" class="logbox small"></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= ACTIVITY ======================= -->
+  <section id="view-log" class="view" hidden>
+    <div class="card"><div class="card-head"><h2>Activity</h2></div><div id="activity"></div></div>
+  </section>
+</main>
+
+<div id="modalRoot"></div>
+<script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+data/*.json
+data/*.tmp
+legacy_nextjs/node_modules/
+legacy_nextjs/.next/
+.pytest_cache/
+.env
+data_share/
